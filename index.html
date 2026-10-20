@@ -28,6 +28,10 @@ body{
 }
 .seams{height:10px; background:repeating-linear-gradient(90deg,var(--accent) 0 2px,transparent 2px 22px); opacity:.55}
 main{max-width:720px; margin:0 auto; padding:0 16px}
+.tabs{display:flex; gap:8px; padding-top:14px}
+.tabs a{flex:1; text-align:center; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); text-decoration:none; font-weight:650}
+.tabs a[aria-current=page]{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.tabs a:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 header{padding:22px 0 8px}
 h1{font-size:24px; line-height:1.25; margin:0 0 6px; font-weight:750; letter-spacing:-.01em}
 header p{margin:0; color:var(--muted)}
@@ -105,6 +109,10 @@ tr.best td:last-child{border-radius:0 6px 6px 0}
 <body>
 <div class="seams" aria-hidden="true"></div>
 <main>
+  <nav class="tabs" aria-label="계산기 선택">
+    <a href="index.html" aria-current="page">도배</a>
+    <a href="tile_calc.html">타일</a>
+  </nav>
   <header>
     <h1>벽지 소요량 계산기</h1>
     <p>바닥을 뺀 벽 4면과 윗면에 붙일 벽지가 몇 롤 필요한지 면별로 계산합니다.</p>
