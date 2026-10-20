@@ -145,7 +145,7 @@ tr.best td:last-child{border-radius:0 6px 6px 0}
   <section class="panel">
     <h2>전개도</h2>
     <div class="net-wrap" id="net"></div>
-    <p class="legend">가는 선은 장 사이의 이음매입니다. 방향은 면별 추천 기준이고, 문은 위치와 상관없이 고르게 배치해서 그렸습니다. 윗면은 앞벽 위에 붙여 그렸습니다.</p>
+    <p class="legend">가는 선은 장 사이의 이음매입니다. 벽은 세로 부착, 윗면은 추천 방향 기준으로 그렸고, 문은 위치와 상관없이 고르게 배치했습니다. 윗면은 앞벽 위에 붙여 그렸습니다.</p>
   </section>
 
   <section class="panel" id="sum-panel">
@@ -246,9 +246,10 @@ function compute(s){
     const doors = f.wall ? cleanDoors(s.doors[f.id], fw, fh) : [];
     const doorArea = doors.reduce((a, d) => a + d.w * d.h, 0);
     const V = plan(fw, fh, doors, s.rw, s.rl, 'V');
-    const H = plan(fw, fh, doors, s.rw, s.rl, 'H');
+    // 벽은 세로 부착만 쓰고, 방향 비교는 윗면에만 적용한다
+    const H = f.wall ? null : plan(fw, fh, doors, s.rw, s.rl, 'H');
     let best = null;
-    for(const p of [V, H]){
+    for(const p of [V, H].filter(Boolean)){
       if(p.feasible && (!best || p.rolls < best.rolls || (p.rolls === best.rolls && p.used < best.used))) best = p;
     }
     const netArea = fw * fh - doorArea;
@@ -432,7 +433,9 @@ function render(){
     return `<div class="res-face">
       <div class="res-head"><strong>${r.name}</strong><span>${info.join(' · ')}</span></div>
       <table><thead><tr><th>방향</th><th class="n">장 수</th><th class="n">사용 길이</th><th class="n">필요 롤</th></tr></thead>
-      <tbody>${rowHtml(r.V, r.best === r.V)}${rowHtml(r.H, r.best === r.H)}</tbody></table>
+      <tbody>${r.wall
+        ? rowHtml(r.V, false)
+        : rowHtml(r.V, r.best === r.V) + rowHtml(r.H, r.best === r.H)}</tbody></table>
     </div>`;
   }).join('');
 
