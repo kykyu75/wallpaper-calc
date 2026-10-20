@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>타일 소요량 계산기</title>
+<style>
+:root{
+  --bg:#EEF1F0; --surface:#FFFFFF; --ink:#16242C; --muted:#586870; --line:#D3DADD;
+  --accent:#0E6F66; --accent-soft:#DCEDEA; --accent-ink:#FFFFFF;
+  --warn:#9A4A08; --warn-soft:#FAEAD6; --door:#B9C5CB;
+  --wall-bg:#E4EDF3; --floor-bg:#EFE6DA;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#11181C; --surface:#192228; --ink:#E6ECEE; --muted:#93A3AA; --line:#2C3A41;
+    --accent:#4FC3B5; --accent-soft:#1B3A38; --accent-ink:#0C1A18;
+    --warn:#F0B070; --warn-soft:#3A2A18; --door:#46555D;
+    --wall-bg:#1F2E38; --floor-bg:#33291E;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+  font-size:15px; line-height:1.55; font-variant-numeric:tabular-nums;
+  padding-bottom:96px;
+}
+.seams{height:10px; background:
+  repeating-linear-gradient(90deg,var(--accent) 0 2px,transparent 2px 22px); opacity:.55}
+main{max-width:720px; margin:0 auto; padding:0 16px}
+.tabs{display:flex; gap:8px; padding-top:14px}
+.tabs a{flex:1; text-align:center; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); text-decoration:none; font-weight:650}
+.tabs a.home{flex:0 0 auto; background:transparent; font-weight:600; color:var(--muted); padding:10px 14px}
+.tabs a[aria-current=page]{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.tabs a:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+header{padding:22px 0 8px}
+h1{font-size:24px; line-height:1.25; margin:0 0 6px; font-weight:750; letter-spacing:-.01em}
+header p{margin:0; color:var(--muted)}
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px; margin-top:14px}
+h2{font-size:16px; margin:0 0 12px; font-weight:700}
+h3{font-size:15px; margin:0 0 8px; font-weight:700}
+.grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+.grid2{display:grid; grid-template-columns:repeat(2,1fr); gap:10px}
+label.f{display:block; font-size:13px; color:var(--muted)}
+.inp{position:relative; margin-top:4px}
+input[type=number],select{
+  width:100%; height:44px; border:1px solid var(--line); border-radius:8px;
+  background:var(--bg); color:var(--ink); font:inherit; font-size:16px; padding:0 34px 0 10px;
+}
+select{padding-right:10px}
+input[type=number]:disabled{opacity:.6}
+.inp span{position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--muted); pointer-events:none}
+input:focus-visible,select:focus-visible,button:focus-visible,.face-head:has(input:focus-visible){outline:2px solid var(--accent); outline-offset:2px}
+.hint{font-size:13px; color:var(--muted); margin:10px 0 0}
+.row-gap{margin-top:10px}
+
+.cat{padding:12px 0; border-top:1px solid var(--line)}
+.cat:first-of-type{border-top:0; padding-top:0}
+.cat-tag{display:inline-block; font-size:12px; font-weight:650; border-radius:999px; padding:1px 9px; margin-left:6px; vertical-align:1px}
+.tag-wall{background:var(--wall-bg)}
+.tag-floor{background:var(--floor-bg)}
+
+.face{border-top:1px solid var(--line); padding:10px 0}
+.face:first-of-type{border-top:0; padding-top:0}
+.face-head{display:flex; align-items:center; gap:10px; min-height:40px; cursor:pointer}
+.face-head input{width:20px; height:20px; accent-color:var(--accent); flex:none}
+.face-name{font-weight:650}
+.face-dim{color:var(--muted); font-size:13px; margin-left:auto}
+.doors{margin:4px 0 0 30px}
+.door{display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:end; margin-bottom:8px}
+.door .inp input{height:40px}
+button{font:inherit; cursor:pointer}
+.btn-ghost{height:40px; border:1px solid var(--line); border-radius:8px; background:transparent; color:var(--ink); padding:0 12px}
+.btn-add{height:36px; border:1px dashed var(--muted); border-radius:8px; background:transparent; color:var(--ink); padding:0 12px; font-size:14px}
+.face.off .doors{display:none}
+
+.net-wrap{overflow-x:auto; margin:0 -4px}
+.net-wrap svg{display:block; min-width:600px; width:100%; height:auto}
+.legend{font-size:13px; color:var(--muted); margin:8px 0 0}
+
+.sum{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.sum > div{border:1px solid var(--line); border-radius:8px; padding:12px}
+.sum .k{font-size:13px; color:var(--muted)}
+.sum .v{font-size:32px; font-weight:750; line-height:1.15; margin-top:2px}
+.sum .v small{font-size:16px; font-weight:600; margin-left:2px}
+.sum .b{font-size:18px; font-weight:700; margin-top:6px}
+.sum .s{font-size:13px; color:var(--muted); margin-top:4px}
+.sum .wall{background:var(--wall-bg); border-color:transparent}
+.sum .floor{background:var(--floor-bg); border-color:transparent}
+.sum .none{border-style:dashed; color:var(--muted)}
+
+.res-face{margin-top:16px}
+.res-face:first-of-type{margin-top:0}
+.res-head{display:flex; flex-wrap:wrap; gap:2px 10px; align-items:baseline; margin-bottom:6px}
+.res-head strong{font-size:15px}
+.res-head span{font-size:13px; color:var(--muted)}
+table{width:100%; border-collapse:collapse; font-size:14px}
+th{font-size:12px; font-weight:600; color:var(--muted); text-align:left; padding:4px 6px; border-bottom:1px solid var(--line)}
+td{padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top}
+td small{display:block; color:var(--muted); font-size:12px}
+th.n,td.n{text-align:right}
+tr.best td{background:var(--accent-soft)}
+tr.best td:first-child{border-radius:6px 0 0 6px}
+tr.best td:last-child{border-radius:0 6px 6px 0}
+.chip{display:inline-block; font-size:11px; font-weight:700; background:var(--accent); color:var(--accent-ink); border-radius:999px; padding:1px 8px; margin-left:4px; vertical-align:1px}
+.notice{background:var(--warn-soft); color:var(--warn); border-radius:8px; padding:10px 12px; font-size:14px}
+.empty{color:var(--muted)}
+
+.bar{position:fixed; left:0; right:0; bottom:0; background:var(--surface); border-top:1px solid var(--line); padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.bar-in{max-width:720px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px}
+.bar .big{font-size:20px; font-weight:750}
+.bar .lbl{font-size:12px; color:var(--muted); display:block; line-height:1.2}
+.bar .r{text-align:right}
+.bar small{font-size:13px; font-weight:600; color:var(--muted)}
+@media (max-width:380px){ .grid3{gap:6px} .sum .v{font-size:28px} }
+</style>
+</head>
+<body>
+<div class="seams" aria-hidden="true"></div>
+<main>
+  <nav class="tabs" aria-label="계산기 선택">
+    <a class="home" href="https://blog.naver.com/smallworking" rel="noopener">홈으로</a>
+    <a href="index.html">도배</a>
+    <a href="tile_calc.html" aria-current="page">타일</a>
+  </nav>
+  <header>
+    <h1>타일 소요량 계산기</h1>
+    <p>벽 4면(도기질)과 바닥(자기질)에 붙일 타일 장수와 박스 수를 계산합니다.</p>
+  </header>
+
+  <section class="panel">
+    <h2>공간 크기</h2>
+    <div class="grid3">
+      <label class="f">가로<div class="inp"><input id="in-W" type="number" inputmode="numeric" value="4400" min="1"><span>mm</span></div></label>
+      <label class="f">세로<div class="inp"><input id="in-D" type="number" inputmode="numeric" value="2200" min="1"><span>mm</span></div></label>
+      <label class="f">높이<div class="inp"><input id="in-H" type="number" inputmode="numeric" value="2400" min="1"><span>mm</span></div></label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>타일</h2>
+    <div class="cat">
+      <h3>벽 타일<span class="cat-tag tag-wall">도기질</span></h3>
+      <label class="f">크기 (가로 × 세로)
+        <div class="inp"><select id="in-wall-size"></select></div>
+      </label>
+      <div class="grid3 row-gap">
+        <label class="f">가로<div class="inp"><input id="in-wall-w" type="number" inputmode="numeric" min="1"><span>mm</span></div></label>
+        <label class="f">세로<div class="inp"><input id="in-wall-h" type="number" inputmode="numeric" min="1"><span>mm</span></div></label>
+        <label class="f">박스당<div class="inp"><input id="in-wall-box" type="number" inputmode="numeric" min="1" placeholder="예: 8"><span>장</span></div></label>
+      </div>
+    </div>
+    <div class="cat">
+      <h3>바닥 타일<span class="cat-tag tag-floor">자기질 · 포세린</span></h3>
+      <label class="f">크기 (가로 × 세로)
+        <div class="inp"><select id="in-floor-size"></select></div>
+      </label>
+      <div class="grid3 row-gap">
+        <label class="f">가로<div class="inp"><input id="in-floor-w" type="number" inputmode="numeric" min="1"><span>mm</span></div></label>
+        <label class="f">세로<div class="inp"><input id="in-floor-h" type="number" inputmode="numeric" min="1"><span>mm</span></div></label>
+        <label class="f">박스당<div class="inp"><input id="in-floor-box" type="number" inputmode="numeric" min="1" placeholder="예: 4"><span>장</span></div></label>
+      </div>
+    </div>
+    <div class="cat">
+      <div class="grid2">
+        <label class="f">줄눈 폭<div class="inp"><input id="in-joint" type="number" inputmode="decimal" value="0" min="0" step="0.5"><span>mm</span></div></label>
+        <label class="f">여유율<div class="inp"><input id="in-margin" type="number" inputmode="decimal" value="0" min="0" step="1"><span>%</span></div></label>
+      </div>
+      <p class="hint">박스당 장수는 타일 크기마다 다르니 제품 표기대로 입력하세요. 입력하면 박스 수가 나옵니다.</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>붙일 면</h2>
+    <div id="faces"></div>
+    <p class="hint">문 위치는 입력하지 않습니다. 문 때문에 완전히 빠지는 타일은 위치를 모르는 것으로 보고 적게 잡습니다.</p>
+  </section>
+
+  <section class="panel">
+    <h2>전개도</h2>
+    <div class="net-wrap" id="net"></div>
+    <p class="legend">푸른 면이 벽, 갈색 면이 바닥입니다. 가는 선은 타일 줄이고 면별 추천 배치 기준입니다. 문은 위치와 상관없이 고르게 배치해서 그렸고, 바닥은 앞벽 아래에 붙여 그렸습니다.</p>
+  </section>
+
+  <section class="panel">
+    <h2>총 장수와 박스 수</h2>
+    <div id="summary"></div>
+  </section>
+
+  <section class="panel">
+    <h2>면별 결과</h2>
+    <div id="results"></div>
+  </section>
+</main>
+
+<div class="bar" role="status" aria-live="polite">
+  <div class="bar-in">
+    <div><span class="lbl">벽 타일</span><span class="big" id="bar-v1">–</span></div>
+    <div class="r"><span class="lbl">바닥 타일</span><span class="big" id="bar-v2">–</span></div>
+  </div>
+</div>
+
+<script>
+// ==CALC START==
+const EPS = 1e-9;
+const ceil = x => Math.ceil(x - EPS);
+const floor = x => Math.floor(x + EPS);
+const FACES = [
+  {id:'front', name:'앞벽',      wall:true,  dims:s=>[s.W, s.H]},
+  {id:'back',  name:'뒷벽',      wall:true,  dims:s=>[s.W, s.H]},
+  {id:'left',  name:'왼쪽 벽',   wall:true,  dims:s=>[s.D, s.H]},
+  {id:'right', name:'오른쪽 벽', wall:true,  dims:s=>[s.D, s.H]},
+  {id:'floor', name:'바닥',      wall:false, dims:s=>[s.W, s.D]}
+];
+
+function cleanDoors(list, fw, fh){
+  return (list || [])
+    .map(d => ({w: Math.min(+d.w || 0, fw), h: Math.min(+d.h || 0, fh)}))
+    .filter(d => d.w > 0 && d.h > 0);
+}
+
+// 타일 pw × ph(놓은 상태의 가로×세로)를 면 fw × fh에 깐다. 잘리는 타일도 1장으로 센다.
+function tilePlan(fw, fh, doors, pw, ph, joint, swapped){
+  const px = pw + joint, py = ph + joint;
+  const cols = ceil((fw + joint) / px);
+  const rows = ceil((fh + joint) / py);
+  const total = cols * rows;
+  let removed = 0;
+  for(const d of doors){
+    // 가로 위치는 모르므로 확실히 통째로 가려지는 열만 센다. 세로는 바닥에서 시작하므로 정확하다.
+    const cf = Math.min(cols, Math.max(0, ceil(d.w / px) - 1));
+    const rf = Math.min(rows, floor((d.h + joint) / py));
+    removed += cf * rf;
+  }
+  removed = Math.min(removed, total);
+  return {swapped, pw, ph, cols, rows, total, removed, tiles: total - removed};
+}
+
+function compute(s){
+  const out = {faces: [], ok: true,
+    wall: {tiles: 0, areaMm2: 0, n: 0}, floor: {tiles: 0, areaMm2: 0, n: 0}};
+  for(const f of FACES){
+    if(!s.enabled[f.id]) continue;
+    const spec = f.wall ? s.wall : s.floor;
+    const [fw, fh] = f.dims(s);
+    const doors = f.wall ? cleanDoors(s.doors[f.id], fw, fh) : [];
+    const doorArea = doors.reduce((a, d) => a + d.w * d.h, 0);
+    const A = tilePlan(fw, fh, doors, spec.tw, spec.th, s.joint, false);
+    const B = spec.tw === spec.th ? null : tilePlan(fw, fh, doors, spec.th, spec.tw, s.joint, true);
+    let best = A;
+    if(B && B.tiles < A.tiles) best = B;
+    const netArea = fw * fh - doorArea;
+    const g = f.wall ? out.wall : out.floor;
+    g.tiles += best.tiles; g.areaMm2 += netArea; g.n++;
+    out.faces.push({id: f.id, name: f.name, wall: f.wall, fw, fh, doors, doorArea, netArea,
+                    areaTiles: netArea / (spec.tw * spec.th), A, B, best});
+  }
+  const m = 1 + s.margin / 100;
+  for(const key of ['wall', 'floor']){
+    const g = out[key], spec = s[key];
+    if(!g.n) continue;
+    g.buy = ceil(g.tiles * m);
+    g.areaBuy = ceil(g.areaMm2 * m / (spec.tw * spec.th));
+    g.boxes = spec.perBox > 0 ? ceil(g.buy / spec.perBox) : null;
+  }
+  return out;
+}
+// ==CALC END==
+
+// ---------- UI ----------
+const SIZES = ['100x100','150x150','300x300','300x600','600x600','600x1200'];
+const state = {
+  W:4400, D:2200, H:2400, joint:0, margin:0,
+  wall:{tw:300, th:600, perBox:0}, floor:{tw:600, th:600, perBox:0},
+  enabled:{front:true, back:true, left:true, right:true, floor:true},
+  doors:{front:[], back:[], left:[], right:[]}
+};
+const $ = id => document.getElementById(id);
+const fmt = n => Math.round(n).toLocaleString('ko-KR');
+const m2 = mm2 => (mm2 / 1e6).toFixed(2);
+const numFmt = n => (Math.round(n * 10) / 10).toString();
+
+function buildSelects(){
+  const opts = SIZES.map(v => `<option value="${v}">${v.replace('x', ' × ')}</option>`).join('')
+             + '<option value="custom">직접 입력</option>';
+  $('in-wall-size').innerHTML = opts;
+  $('in-floor-size').innerHTML = opts;
+  $('in-wall-size').value = '300x600';
+  $('in-floor-size').value = '600x600';
+}
+
+function buildFaces(){
+  $('faces').innerHTML = FACES.map(f => `
+    <div class="face" id="face-${f.id}">
+      <label class="face-head">
+        <input type="checkbox" data-face="${f.id}" checked>
+        <span class="face-name">${f.name}</span>
+        <span class="cat-tag ${f.wall ? 'tag-wall' : 'tag-floor'}">${f.wall ? '벽 · 도기질' : '바닥 · 자기질'}</span>
+        <span class="face-dim" id="dim-${f.id}"></span>
+      </label>
+      ${f.wall ? `<div class="doors"><div id="doors-${f.id}"></div>
+        <button type="button" class="btn-add" data-act="add" data-face="${f.id}">문 추가</button></div>` : ''}
+    </div>`).join('');
+}
+
+function renderDoors(id){
+  const f = FACES.find(x => x.id === id);
+  $('doors-' + id).innerHTML = state.doors[id].map((d, i) => `
+    <div class="door">
+      <label class="f">문 폭<div class="inp"><input type="number" inputmode="numeric" min="1" value="${d.w}" data-face="${id}" data-idx="${i}" data-key="w"><span>mm</span></div></label>
+      <label class="f">문 높이<div class="inp"><input type="number" inputmode="numeric" min="1" value="${d.h}" data-face="${id}" data-idx="${i}" data-key="h"><span>mm</span></div></label>
+      <button type="button" class="btn-ghost" data-act="del" data-face="${id}" data-idx="${i}" aria-label="${f.name} 문 ${i+1} 삭제">삭제</button>
+    </div>`).join('');
+}
+
+function readCat(key){
+  const sel = $(`in-${key}-size`).value;
+  const w = $(`in-${key}-w`), h = $(`in-${key}-h`);
+  if(sel === 'custom'){
+    w.disabled = false; h.disabled = false;
+  } else {
+    const [a, b] = sel.split('x').map(Number);
+    w.value = a; h.value = b; w.disabled = true; h.disabled = true;
+  }
+  state[key] = {tw: +w.value || 0, th: +h.value || 0, perBox: Math.floor(+$(`in-${key}-box`).value || 0)};
+}
+
+function readInputs(){
+  state.W = +$('in-W').value || 0;
+  state.D = +$('in-D').value || 0;
+  state.H = +$('in-H').value || 0;
+  state.joint = Math.max(0, +$('in-joint').value || 0);
+  state.margin = Math.max(0, +$('in-margin').value || 0);
+  readCat('wall'); readCat('floor');
+}
+
+function orientLabel(p){ return p.pw === p.ph ? '정사각 타일' : (p.pw > p.ph ? '가로로 길게' : '세로로 길게'); }
+
+function netSvg(s, res){
+  const {W, D, H} = s;
+  const m = 300;
+  const totalW = 2*W + 2*D + 2*m;
+  const fs = totalW / 46;
+  const top = fs * 2.6;
+  const totalH = top + H + D + m;
+  const byId = {}; res.faces.forEach(r => byId[r.id] = r);
+  const places = [['front', m, top], ['right', m + W, top], ['back', m + W + D, top], ['left', m + 2*W + D, top], ['floor', m, top + H]];
+  let g = '';
+  for(const [id, x, y] of places){
+    const f = FACES.find(q => q.id === id);
+    const [fw, fh] = f.dims(s);
+    const r = byId[id];
+    const fill = f.wall ? 'var(--wall-bg)' : 'var(--floor-bg)';
+    g += `<g transform="translate(${x},${y})"${r ? '' : ' opacity="0.4"'}>`;
+    g += `<rect width="${fw}" height="${fh}" fill="${fill}" stroke="var(--ink)" stroke-width="1.5" vector-effect="non-scaling-stroke"${r ? '' : ' stroke-dasharray="6 4"'}/>`;
+    if(r){
+      const b = r.best, px = b.pw + s.joint, py = b.ph + s.joint;
+      let lines = '';
+      const nx = fw / px, ny = fh / py;
+      if(nx < 300) for(let k = 1; k * px < fw - 1; k++) lines += `<line vector-effect="non-scaling-stroke" x1="${k*px}" y1="0" x2="${k*px}" y2="${fh}"/>`;
+      if(ny < 300) for(let k = 1; k * py < fh - 1; k++){
+        const yy = f.wall ? fh - k * py : k * py;
+        lines += `<line vector-effect="non-scaling-stroke" x1="0" y1="${yy}" x2="${fw}" y2="${yy}"/>`;
+      }
+      g += `<g stroke="var(--accent)" stroke-width="1" opacity="0.55">${lines}</g>`;
+      const ds = r.doors, sumW = ds.reduce((a, d) => a + d.w, 0);
+      const gap = Math.max(0, (fw - sumW) / (ds.length + 1));
+      let cx = gap;
+      for(const d of ds){
+        g += `<rect x="${cx}" y="${fh - d.h}" width="${d.w}" height="${d.h}" fill="var(--door)" stroke="var(--ink)" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+        cx += d.w + gap;
+      }
+    }
+    const lab = `style="paint-order:stroke;stroke:${fill};stroke-width:${fs*0.4}px;stroke-linejoin:round" fill="var(--ink)" text-anchor="middle"`;
+    const cy = f.wall ? fs * 1.6 : fh / 2 - fs * 0.2;
+    g += `<text x="${fw/2}" y="${cy}" font-size="${fs*1.1}" font-weight="700" ${lab}>${f.name}${r ? '' : ' (제외)'}</text>`;
+    g += `<text x="${fw/2}" y="${cy + fs*1.3}" font-size="${fs*0.9}" ${lab}>${fmt(fw)} × ${fmt(fh)}</text>`;
+    g += `</g>`;
+  }
+  const wt = s.wall, ft = s.floor;
+  g += `<text x="${m}" y="${top - fs*0.7}" font-size="${fs*1.15}" font-weight="700" fill="var(--ink)">벽면 · 도기질 ${wt.tw}×${wt.th}</text>`;
+  g += `<text x="${m + W + fs}" y="${top + H + fs*1.6}" font-size="${fs*1.15}" font-weight="700" fill="var(--ink)">바닥면 · 자기질 ${ft.tw}×${ft.th}</text>`;
+  return `<svg viewBox="0 0 ${totalW} ${totalH}" role="img" aria-label="벽면과 바닥면을 구분한 전개도">${g}</svg>`;
+}
+
+function rowHtml(p, isBest, showChip){
+  return `<tr class="${isBest && showChip ? 'best' : ''}">
+    <td>${orientLabel(p)}<small>타일 ${fmt(p.pw)} × ${fmt(p.ph)}</small></td>
+    <td class="n">${p.cols}열 × ${p.rows}행<small>${fmt(p.total)}칸</small></td>
+    <td class="n">${fmt(p.tiles)}장${isBest && showChip ? '<span class="chip">추천</span>' : ''}${p.removed ? `<small>문 −${fmt(p.removed)}장</small>` : ''}</td></tr>`;
+}
+
+function catCard(cls, title, spec, g){
+  if(!g || !g.n) return `<div class="none"><div class="k">${title}</div><div class="s">선택한 면이 없습니다</div></div>`;
+  const m = 1 + state.margin / 100;
+  const lines = [];
+  if(state.margin > 0) lines.push(`면별 합계 ${fmt(g.tiles)}장 × ${m.toFixed(2)}, 올림`);
+  lines.push(`면적 기준 이론 최소 ${fmt(g.areaBuy)}장`);
+  const box = g.boxes != null
+    ? `<div class="b">${fmt(g.boxes)}박스</div><div class="s">박스당 ${fmt(spec.perBox)}장 기준</div>`
+    : `<div class="s">박스당 장수를 입력하면 박스 수가 나옵니다.</div>`;
+  return `<div class="${cls}"><div class="k">${title} · ${fmt(spec.tw)}×${fmt(spec.th)}</div>
+    <div class="v">${fmt(g.buy)}<small>장</small></div>${box}
+    <div class="s">${lines.join(' · ')}</div></div>`;
+}
+
+function render(){
+  readInputs();
+  FACES.forEach(f => {
+    const [fw, fh] = f.dims(state);
+    $('dim-' + f.id).textContent = `${fmt(fw)} × ${fmt(fh)}`;
+    $('face-' + f.id).classList.toggle('off', !state.enabled[f.id]);
+  });
+
+  const bad = !(state.W > 0 && state.D > 0 && state.H > 0 &&
+    state.wall.tw > 0 && state.wall.th > 0 && state.floor.tw > 0 && state.floor.th > 0);
+  if(bad){
+    $('net').innerHTML = '';
+    $('summary').innerHTML = '<div class="notice">가로, 세로, 높이와 타일 크기를 0보다 큰 값으로 입력해 주세요.</div>';
+    $('results').innerHTML = '';
+    $('bar-v1').textContent = '–'; $('bar-v2').textContent = '–';
+    return;
+  }
+
+  const res = compute(state);
+  $('net').innerHTML = netSvg(state, res);
+
+  if(!res.faces.length){
+    $('summary').innerHTML = '<p class="empty">붙일 면을 하나 이상 선택해 주세요.</p>';
+    $('results').innerHTML = '';
+    $('bar-v1').textContent = '–'; $('bar-v2').textContent = '–';
+    return;
+  }
+
+  $('results').innerHTML = res.faces.map(r => {
+    const spec = r.wall ? state.wall : state.floor;
+    const info = [`${fmt(r.fw)} × ${fmt(r.fh)}`];
+    if(r.doorArea) info.push(`문 −${m2(r.doorArea)}㎡`);
+    info.push(`면적 환산 ${r.areaTiles.toFixed(1)}장`);
+    const rows = r.B
+      ? rowHtml(r.A, r.best === r.A, true) + rowHtml(r.B, r.best === r.B, true)
+      : rowHtml(r.A, true, false);
+    return `<div class="res-face">
+      <div class="res-head"><strong>${r.name}</strong><span>${info.join(' · ')}</span></div>
+      <table><thead><tr><th>배치</th><th class="n">칸 수</th><th class="n">필요 장수</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    </div>`;
+  }).join('');
+
+  $('summary').innerHTML = `<div class="sum">
+      ${catCard('wall', '벽 타일 · 도기질', state.wall, res.wall)}
+      ${catCard('floor', '바닥 타일 · 자기질', state.floor, res.floor)}
+    </div>
+    <p class="hint">장수는 타일을 열과 행으로 깔아서 센 값이고, 가장자리에서 잘리는 타일도 1장으로 셉니다. 벽 4면은 같은 타일로 보고 장수를 합산한 뒤 박스 수를 올림합니다. 면적 기준은 자투리를 재사용한다고 보는 참고값입니다.</p>`;
+
+  const bar = (g, spec) => (!g || !g.n) ? '–'
+    : `${fmt(g.buy)}장${g.boxes != null ? ` <small>· ${fmt(g.boxes)}박스</small>` : ''}`;
+  $('bar-v1').innerHTML = bar(res.wall, state.wall);
+  $('bar-v2').innerHTML = bar(res.floor, state.floor);
+}
+
+// ---------- events ----------
+document.addEventListener('input', e => {
+  const t = e.target;
+  if(t.dataset && t.dataset.key){
+    state.doors[t.dataset.face][+t.dataset.idx][t.dataset.key] = +t.value || 0;
+  } else if(t.type === 'checkbox' && t.dataset.face){
+    state.enabled[t.dataset.face] = t.checked;
+  } else if(!t.id || !t.id.startsWith('in-')){
+    return;
+  }
+  render();
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]');
+  if(!b) return;
+  const id = b.dataset.face;
+  if(b.dataset.act === 'add'){
+    state.doors[id].push({w: 900, h: Math.min(2100, state.H || 2100)});
+  } else {
+    state.doors[id].splice(+b.dataset.idx, 1);
+  }
+  renderDoors(id);
+  render();
+});
+
+buildSelects();
+buildFaces();
+render();
+</script>
+</body>
+</html>
