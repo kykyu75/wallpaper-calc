@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>벽지 소요량 계산기</title>
+<style>
+:root{
+  --bg:#EEF1F0; --surface:#FFFFFF; --ink:#16242C; --muted:#586870; --line:#D3DADD;
+  --accent:#0E6F66; --accent-soft:#DCEDEA; --accent-ink:#FFFFFF;
+  --warn:#9A4A08; --warn-soft:#FAEAD6; --door:#C5CFD4;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#11181C; --surface:#192228; --ink:#E6ECEE; --muted:#93A3AA; --line:#2C3A41;
+    --accent:#4FC3B5; --accent-soft:#1B3A38; --accent-ink:#0C1A18;
+    --warn:#F0B070; --warn-soft:#3A2A18; --door:#3A4850;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+  font-size:15px; line-height:1.55; font-variant-numeric:tabular-nums;
+  padding-bottom:96px;
+}
+.seams{height:10px; background:repeating-linear-gradient(90deg,var(--accent) 0 2px,transparent 2px 22px); opacity:.55}
+main{max-width:720px; margin:0 auto; padding:0 16px}
+header{padding:22px 0 8px}
+h1{font-size:24px; line-height:1.25; margin:0 0 6px; font-weight:750; letter-spacing:-.01em}
+header p{margin:0; color:var(--muted)}
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px; margin-top:14px}
+h2{font-size:16px; margin:0 0 12px; font-weight:700}
+.grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+.grid2{display:grid; grid-template-columns:repeat(2,1fr); gap:10px}
+label.f{display:block; font-size:13px; color:var(--muted)}
+.inp{position:relative; margin-top:4px}
+input[type=number],select{
+  width:100%; height:44px; border:1px solid var(--line); border-radius:8px;
+  background:var(--bg); color:var(--ink); font:inherit; font-size:16px; padding:0 34px 0 10px;
+}
+select{padding-right:10px}
+input[type=number]:disabled{opacity:.6}
+.inp span{position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--muted); pointer-events:none}
+input:focus-visible,select:focus-visible,button:focus-visible,.face-head:has(input:focus-visible){outline:2px solid var(--accent); outline-offset:2px}
+.hint{font-size:13px; color:var(--muted); margin:10px 0 0}
+.row-gap{margin-top:12px}
+
+.face{border-top:1px solid var(--line); padding:10px 0}
+.face:first-of-type{border-top:0; padding-top:0}
+.face-head{display:flex; align-items:center; gap:10px; min-height:40px; cursor:pointer}
+.face-head input{width:20px; height:20px; accent-color:var(--accent); flex:none}
+.face-name{font-weight:650}
+.face-dim{color:var(--muted); font-size:13px; margin-left:auto}
+.doors{margin:4px 0 0 30px}
+.door{display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:end; margin-bottom:8px}
+.door .inp input{height:40px}
+button{font:inherit; cursor:pointer}
+.btn-ghost{height:40px; border:1px solid var(--line); border-radius:8px; background:transparent; color:var(--ink); padding:0 12px}
+.btn-add{height:36px; border:1px dashed var(--muted); border-radius:8px; background:transparent; color:var(--ink); padding:0 12px; font-size:14px}
+.face.off .doors{display:none}
+
+.net-wrap{overflow-x:auto; margin:0 -4px}
+.net-wrap svg{display:block; min-width:600px; width:100%; height:auto}
+.legend{font-size:13px; color:var(--muted); margin:8px 0 0}
+
+.sum{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.sum > div{border:1px solid var(--line); border-radius:8px; padding:12px}
+.sum .main{background:var(--accent-soft); border-color:transparent}
+.sum .k{font-size:13px; color:var(--muted)}
+.sum .v{font-size:32px; font-weight:750; line-height:1.15; margin-top:2px}
+.sum .v small{font-size:16px; font-weight:600; margin-left:2px}
+.sum .s{font-size:13px; color:var(--muted); margin-top:4px}
+.break{margin:12px 0 0; font-size:14px}
+.glue-h{margin-top:20px; padding-top:16px; border-top:1px solid var(--line)}
+
+.res-face{margin-top:16px}
+.res-face:first-of-type{margin-top:0}
+.res-head{display:flex; flex-wrap:wrap; gap:2px 10px; align-items:baseline; margin-bottom:6px}
+.res-head strong{font-size:15px}
+.res-head span{font-size:13px; color:var(--muted)}
+table{width:100%; border-collapse:collapse; font-size:14px}
+th{font-size:12px; font-weight:600; color:var(--muted); text-align:left; padding:4px 6px; border-bottom:1px solid var(--line)}
+td{padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top}
+td small{display:block; color:var(--muted); font-size:12px}
+th.n,td.n{text-align:right}
+tr.best td{background:var(--accent-soft)}
+tr.best td:first-child{border-radius:6px 0 0 6px}
+tr.best td:last-child{border-radius:0 6px 6px 0}
+.chip{display:inline-block; font-size:11px; font-weight:700; background:var(--accent); color:var(--accent-ink); border-radius:999px; padding:1px 8px; margin-left:4px; vertical-align:1px}
+.notice{background:var(--warn-soft); color:var(--warn); border-radius:8px; padding:10px 12px; font-size:14px}
+.empty{color:var(--muted)}
+
+.bar{position:fixed; left:0; right:0; bottom:0; background:var(--surface); border-top:1px solid var(--line); padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.bar-in{max-width:720px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px}
+.bar .big{font-size:22px; font-weight:750}
+.bar .lbl{font-size:12px; color:var(--muted); display:block; line-height:1.2}
+.bar .r{text-align:right}
+.bar .r .big{font-size:18px; font-weight:650}
+@media (max-width:380px){ .grid3{gap:6px} .sum .v{font-size:28px} }
+</style>
+</head>
+<body>
+<div class="seams" aria-hidden="true"></div>
+<main>
+  <header>
+    <h1>벽지 소요량 계산기</h1>
+    <p>바닥을 뺀 벽 4면과 윗면에 붙일 벽지가 몇 롤 필요한지 면별로 계산합니다.</p>
+  </header>
+
+  <section class="panel">
+    <h2>공간 크기</h2>
+    <div class="grid3">
+      <label class="f">가로<div class="inp"><input id="in-W" type="number" inputmode="numeric" value="4400" min="1"><span>mm</span></div></label>
+      <label class="f">세로<div class="inp"><input id="in-D" type="number" inputmode="numeric" value="2200" min="1"><span>mm</span></div></label>
+      <label class="f">높이<div class="inp"><input id="in-H" type="number" inputmode="numeric" value="2400" min="1"><span>mm</span></div></label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>벽지</h2>
+    <label class="f">종류
+      <div class="inp"><select id="in-preset">
+        <option value="small">소폭 합지 · 53cm × 12.5m</option>
+        <option value="wide">광폭 합지 · 93cm × 17.75m</option>
+        <option value="silk">실크벽지 · 106cm × 15.5m</option>
+        <option value="custom">기타 (직접 입력)</option>
+      </select></div>
+    </label>
+    <div class="grid3 row-gap">
+      <label class="f">폭<div class="inp"><input id="in-rw" type="number" inputmode="numeric" value="530" min="1"><span>mm</span></div></label>
+      <label class="f">길이<div class="inp"><input id="in-rl" type="number" inputmode="numeric" value="12500" min="1"><span>mm</span></div></label>
+      <label class="f">여유율<div class="inp"><input id="in-margin" type="number" inputmode="decimal" value="0" min="0" step="1"><span>%</span></div></label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>붙일 면</h2>
+    <div id="faces"></div>
+    <p class="hint">문 위치는 입력하지 않습니다. 문이 걸치는 장 수는 위치를 모르는 것으로 보고 넉넉하게 잡습니다.</p>
+  </section>
+
+  <section class="panel">
+    <h2>전개도</h2>
+    <div class="net-wrap" id="net"></div>
+    <p class="legend">가는 선은 장 사이의 이음매입니다. 방향은 면별 추천 기준이고, 문은 위치와 상관없이 고르게 배치해서 그렸습니다. 윗면은 앞벽 위에 붙여 그렸습니다.</p>
+  </section>
+
+  <section class="panel" id="sum-panel">
+    <h2>총 롤 수</h2>
+    <div id="summary"></div>
+  </section>
+
+  <section class="panel">
+    <h2>면별 결과</h2>
+    <div id="results"></div>
+  </section>
+</main>
+
+<div class="bar" role="status" aria-live="polite">
+  <div class="bar-in">
+    <div><span class="lbl" id="bar-l1">장 단위 기준</span><span class="big" id="bar-v1">–</span></div>
+    <div class="r"><span class="lbl">면적 기준</span><span class="big" id="bar-v2">–</span></div>
+  </div>
+</div>
+
+<script>
+// ==CALC START==
+const EPS = 1e-9;
+const ceil = x => Math.ceil(x - EPS);
+// 도배풀: ㎡당 0.25kg, 현장 손실 15%, 롤당 약 1kg(초배+정배)
+const GLUE = {perM2: 0.25, loss: 0.15, perRoll: 1};
+const FACES = [
+  {id:'front', name:'앞벽',      wall:true,  dims:s=>[s.W, s.H]},
+  {id:'back',  name:'뒷벽',      wall:true,  dims:s=>[s.W, s.H]},
+  {id:'left',  name:'왼쪽 벽',   wall:true,  dims:s=>[s.D, s.H]},
+  {id:'right', name:'오른쪽 벽', wall:true,  dims:s=>[s.D, s.H]},
+  {id:'top',   name:'윗면',      wall:false, dims:s=>[s.W, s.D]}
+];
+
+function cleanDoors(list, fw, fh){
+  return (list || [])
+    .map(d => ({w: Math.min(+d.w || 0, fw), h: Math.min(+d.h || 0, fh)}))
+    .filter(d => d.w > 0 && d.h > 0);
+}
+
+// 조각들을 롤(길이 cap)에 채워 넣는다 (큰 조각부터 먼저 넣는 방식)
+function pack(pieces, cap){
+  const bins = [];
+  const sorted = pieces.slice().sort((a, b) => b - a);
+  for(const p of sorted){
+    let placed = false;
+    for(let i = 0; i < bins.length; i++){
+      if(bins[i] >= p){ bins[i] -= p; placed = true; break; }
+    }
+    if(!placed) bins.push(cap - p);
+  }
+  return bins.length;
+}
+
+// orient 'V': 장이 면의 세로(fh) 방향으로 길게 / 'H': 면의 가로(fw) 방향으로 길게
+function plan(fw, fh, doors, rw, rl, orient){
+  const pieces = [];
+  let full = 0, stripLen, count;
+  if(orient === 'V'){
+    const n = ceil(fw / rw);
+    let remain = n;
+    for(const d of doors){
+      const t = Math.min(ceil(d.w / rw) + 1, remain);
+      if(t <= 0) continue;
+      remain -= t;
+      const len = fh - d.h;
+      if(len > 0) for(let i = 0; i < t; i++) pieces.push(len);
+    }
+    full = remain;
+    for(let i = 0; i < full; i++) pieces.push(fh);
+    stripLen = fh; count = n;
+  } else {
+    const rows = ceil(fh / rw);
+    for(let k = 1; k <= rows; k++){
+      const active = doors.filter(d => ceil(d.h / rw) >= k);
+      if(!active.length){ pieces.push(fw); full++; continue; }
+      const rem = fw - active.reduce((a, d) => a + d.w, 0);
+      if(rem > 0){
+        const cnt = active.length + 1;
+        const p = ceil(rem / cnt);
+        for(let i = 0; i < cnt; i++) pieces.push(p);
+      }
+    }
+    stripLen = fw; count = rows;
+  }
+  const used = pieces.reduce((a, b) => a + b, 0);
+  const feasible = pieces.every(p => p <= rl);
+  const rolls = feasible ? pack(pieces, rl) : Infinity;
+  return {orient, stripLen, count, pieces: pieces.length, full, doorPieces: pieces.length - full, used, feasible, rolls};
+}
+
+function compute(s){
+  const rollArea = s.rw * s.rl;
+  const out = {faces: [], areaMm2: 0, sumRolls: 0, ok: true, total: null, areaRolls: null};
+  for(const f of FACES){
+    if(!s.enabled[f.id]) continue;
+    const [fw, fh] = f.dims(s);
+    const doors = f.wall ? cleanDoors(s.doors[f.id], fw, fh) : [];
+    const doorArea = doors.reduce((a, d) => a + d.w * d.h, 0);
+    const V = plan(fw, fh, doors, s.rw, s.rl, 'V');
+    const H = plan(fw, fh, doors, s.rw, s.rl, 'H');
+    let best = null;
+    for(const p of [V, H]){
+      if(p.feasible && (!best || p.rolls < best.rolls || (p.rolls === best.rolls && p.used < best.used))) best = p;
+    }
+    const netArea = fw * fh - doorArea;
+    out.areaMm2 += netArea;
+    if(best) out.sumRolls += best.rolls; else out.ok = false;
+    out.faces.push({id: f.id, name: f.name, wall: f.wall, fw, fh, doors, doorArea, netArea,
+                    areaRolls: netArea / rollArea, V, H, best});
+  }
+  const m = 1 + s.margin / 100;
+  if(out.faces.length && out.ok) out.total = ceil(out.sumRolls * m);
+  if(out.faces.length) out.areaRolls = ceil(out.areaMm2 * m / rollArea);
+  if(out.faces.length){
+    const S = out.areaMm2 / 1e6;               // 실제 시공 면적(㎡), 문 면적 제외, 여유율 미적용
+    const W = GLUE.perM2 * S;                  // 이론상 풀 무게
+    out.glue = {area: S, theory: W, buy: W * (1 + GLUE.loss),
+                byRoll: out.total != null ? out.total * GLUE.perRoll : null};
+  }
+  return out;
+}
+// ==CALC END==
+
+// ---------- UI ----------
+const PRESETS = {
+  small:{w:530,  l:12500},
+  wide: {w:930,  l:17750},
+  silk: {w:1060, l:15500}
+};
+const state = {
+  W:4400, D:2200, H:2400, preset:'small', rw:530, rl:12500, margin:0,
+  enabled:{front:true, back:true, left:true, right:true, top:true},
+  doors:{front:[], back:[], left:[], right:[]}
+};
+const $ = id => document.getElementById(id);
+const fmt = n => Math.round(n).toLocaleString('ko-KR');
+const m2 = mm2 => (mm2 / 1e6).toFixed(2);
+
+function buildFaces(){
+  $('faces').innerHTML = FACES.map(f => `
+    <div class="face" id="face-${f.id}">
+      <label class="face-head">
+        <input type="checkbox" data-face="${f.id}" checked>
+        <span class="face-name">${f.name}</span>
+        <span class="face-dim" id="dim-${f.id}"></span>
+      </label>
+      ${f.wall ? `<div class="doors"><div id="doors-${f.id}"></div>
+        <button type="button" class="btn-add" data-act="add" data-face="${f.id}">문 추가</button></div>` : ''}
+    </div>`).join('');
+}
+
+function renderDoors(id){
+  const f = FACES.find(x => x.id === id);
+  const list = state.doors[id];
+  $('doors-' + id).innerHTML = list.map((d, i) => `
+    <div class="door">
+      <label class="f">문 폭<div class="inp"><input type="number" inputmode="numeric" min="1" value="${d.w}" data-face="${id}" data-idx="${i}" data-key="w"><span>mm</span></div></label>
+      <label class="f">문 높이<div class="inp"><input type="number" inputmode="numeric" min="1" value="${d.h}" data-face="${id}" data-idx="${i}" data-key="h"><span>mm</span></div></label>
+      <button type="button" class="btn-ghost" data-act="del" data-face="${id}" data-idx="${i}" aria-label="${f.name} 문 ${i+1} 삭제">삭제</button>
+    </div>`).join('');
+}
+
+function readInputs(){
+  state.W = +$('in-W').value || 0;
+  state.D = +$('in-D').value || 0;
+  state.H = +$('in-H').value || 0;
+  state.margin = Math.max(0, +$('in-margin').value || 0);
+  state.preset = $('in-preset').value;
+  if(state.preset === 'custom'){
+    $('in-rw').disabled = false; $('in-rl').disabled = false;
+    state.rw = +$('in-rw').value || 0;
+    state.rl = +$('in-rl').value || 0;
+  } else {
+    const p = PRESETS[state.preset];
+    $('in-rw').value = p.w; $('in-rl').value = p.l;
+    $('in-rw').disabled = true; $('in-rl').disabled = true;
+    state.rw = p.w; state.rl = p.l;
+  }
+}
+
+function netSvg(s, res){
+  const {W, D, H} = s;
+  const m = 300;
+  const totalW = 2*W + 2*D + 2*m, totalH = D + H + 2*m;
+  const fs = totalW / 46;
+  const byId = {}; res.faces.forEach(r => byId[r.id] = r);
+  const places = [['top', m, m], ['front', m, m + D], ['right', m + W, m + D], ['back', m + W + D, m + D], ['left', m + 2*W + D, m + D]];
+  let g = '';
+  for(const [id, x, y] of places){
+    const f = FACES.find(q => q.id === id);
+    const [fw, fh] = f.dims(s);
+    const r = byId[id];
+    g += `<g transform="translate(${x},${y})"${r ? '' : ' opacity="0.4"'}>`;
+    g += `<rect width="${fw}" height="${fh}" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5" vector-effect="non-scaling-stroke"${r ? '' : ' stroke-dasharray="6 4"'}/>`;
+    if(r && r.best){
+      const o = r.best.orient;
+      let lines = '';
+      if(o === 'V'){
+        if(fw / s.rw < 400) for(let px = s.rw; px < fw - 1; px += s.rw) lines += `<line x1="${px}" y1="0" x2="${px}" y2="${fh}"/>`;
+      } else {
+        if(fh / s.rw < 400) for(let py = fh - s.rw; py > 1; py -= s.rw) lines += `<line x1="0" y1="${py}" x2="${fw}" y2="${py}"/>`;
+      }
+      g += `<g stroke="var(--accent)" stroke-width="1" vector-effect="non-scaling-stroke" opacity="0.6">${lines.replace(/<line /g, '<line vector-effect="non-scaling-stroke" ')}</g>`;
+      const ds = r.doors; const sumW = ds.reduce((a, d) => a + d.w, 0);
+      const gap = Math.max(0, (fw - sumW) / (ds.length + 1));
+      let cx = gap;
+      for(const d of ds){
+        g += `<rect x="${cx}" y="${fh - d.h}" width="${d.w}" height="${d.h}" fill="var(--door)" stroke="var(--ink)" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+        cx += d.w + gap;
+      }
+    }
+    const lab = `style="paint-order:stroke;stroke:var(--surface);stroke-width:${fs*0.35}px;stroke-linejoin:round" fill="var(--ink)" text-anchor="middle"`;
+    const cy = f.wall ? fs * 1.6 : fh / 2 - fs * 0.2;
+    g += `<text x="${fw/2}" y="${cy}" font-size="${fs*1.1}" font-weight="700" ${lab}>${f.name}${r ? '' : ' (제외)'}</text>`;
+    g += `<text x="${fw/2}" y="${cy + fs*1.3}" font-size="${fs*0.9}" ${lab}>${fmt(fw)} × ${fmt(fh)}</text>`;
+    g += `</g>`;
+  }
+  return `<svg viewBox="0 0 ${totalW} ${totalH}" role="img" aria-label="바닥을 뺀 직육면체 전개도">${g}</svg>`;
+}
+
+function orientLabel(o){ return o === 'V' ? '세로 부착' : '가로 부착'; }
+
+function rowHtml(p, isBest){
+  const pcs = p.feasible
+    ? `${p.pieces}장${p.doorPieces ? `<small>문 둘레 ${p.doorPieces}장 포함</small>` : ''}`
+    : '–';
+  const len = p.feasible ? (p.used / 1000).toFixed(1) + 'm' : '–';
+  const rolls = p.feasible ? `${p.rolls}롤${isBest ? '<span class="chip">추천</span>' : ''}` : '불가<small>장이 롤보다 깁니다</small>';
+  return `<tr class="${isBest ? 'best' : ''}">
+    <td>${orientLabel(p.orient)}<small>장 길이 ${fmt(p.stripLen)}</small></td>
+    <td class="n">${pcs}</td><td class="n">${len}</td><td class="n">${rolls}</td></tr>`;
+}
+
+const kg = n => (Math.round(n * 10) / 10).toFixed(1);
+function glueHtml(res){
+  const g = res.glue;
+  if(!g) return '';
+  const byRoll = g.byRoll != null
+    ? `<div class="v">${kg(g.byRoll)}<small>kg</small></div><div class="s">${res.total}롤 × ${GLUE.perRoll}kg (초배·정배 모두 할 때)</div>`
+    : `<div class="v">–</div><div class="s">롤 수를 계산할 수 없습니다</div>`;
+  return `<h2 class="glue-h">도배풀</h2>
+    <div class="sum">
+      <div class="main"><div class="k">면적 기준 · 구매 예상량</div>
+        <div class="v">${kg(g.buy)}<small>kg</small></div>
+        <div class="s">${m2(g.area * 1e6)}㎡ × ${GLUE.perM2}kg = ${kg(g.theory)}kg, 손실 ${Math.round(GLUE.loss*100)}% 더함</div></div>
+      <div><div class="k">롤 기준 · 초배·정배</div>${byRoll}</div>
+    </div>
+    <p class="hint">시공 면적은 문을 뺀 벽 + 윗면의 실제 면적이고 평수가 아닙니다. 롤 기준은 장 단위 총 롤 수(여유율 포함)에 롤당 약 ${GLUE.perRoll}kg을 곱한 값이며 손실분은 더하지 않았습니다.</p>`;
+}
+
+function render(){
+  readInputs();
+  FACES.forEach(f => {
+    const [fw, fh] = f.dims(state);
+    $('dim-' + f.id).textContent = `${fmt(fw)} × ${fmt(fh)}`;
+    $('face-' + f.id).classList.toggle('off', !state.enabled[f.id]);
+  });
+
+  const bad = !(state.W > 0 && state.D > 0 && state.H > 0 && state.rw > 0 && state.rl > 0);
+  if(bad){
+    $('net').innerHTML = '';
+    $('summary').innerHTML = '<div class="notice">가로, 세로, 높이, 벽지 폭과 길이를 0보다 큰 값으로 입력해 주세요.</div>';
+    $('results').innerHTML = '';
+    $('bar-v1').textContent = '–'; $('bar-v2').textContent = '–';
+    return;
+  }
+
+  const res = compute(state);
+  $('net').innerHTML = netSvg(state, res);
+
+  if(!res.faces.length){
+    $('summary').innerHTML = '<p class="empty">붙일 면을 하나 이상 선택해 주세요.</p>';
+    $('results').innerHTML = '';
+    $('bar-v1').textContent = '–'; $('bar-v2').textContent = '–';
+    return;
+  }
+
+  // 면별 결과
+  $('results').innerHTML = res.faces.map(r => {
+    const info = [`${fmt(r.fw)} × ${fmt(r.fh)}`];
+    if(r.doorArea) info.push(`문 −${m2(r.doorArea)}㎡`);
+    info.push(`면적 환산 ${r.areaRolls.toFixed(2)}롤`);
+    return `<div class="res-face">
+      <div class="res-head"><strong>${r.name}</strong><span>${info.join(' · ')}</span></div>
+      <table><thead><tr><th>방향</th><th class="n">장 수</th><th class="n">사용 길이</th><th class="n">필요 롤</th></tr></thead>
+      <tbody>${rowHtml(r.V, r.best === r.V)}${rowHtml(r.H, r.best === r.H)}</tbody></table>
+    </div>`;
+  }).join('');
+
+  // 총 롤 수
+  const mm = 1 + state.margin / 100;
+  const marginTxt = state.margin > 0 ? ` (여유 ${state.margin}% 포함)` : '';
+  let html = '';
+  if(res.ok){
+    const parts = res.faces.map(r => `${r.name} ${r.best.rolls}`).join(' + ');
+    html += `<div class="sum">
+      <div class="main"><div class="k">장 단위 기준 · 실제 재단</div>
+        <div class="v">${res.total}<small>롤</small></div>
+        <div class="s">${state.margin > 0 ? `면별 합계 ${res.sumRolls}롤 × ${mm.toFixed(2)}, 올림` : '면별 합계'}</div></div>
+      <div><div class="k">면적 기준 · 이론 최소</div>
+        <div class="v">${res.areaRolls}<small>롤</small></div>
+        <div class="s">${m2(res.areaMm2)}㎡${marginTxt}</div></div>
+    </div>
+    <p class="break">${parts} = ${res.sumRolls}롤</p>
+    <p class="hint">장 단위 기준은 벽지를 장 단위로 자르고 면마다 롤을 따로 쓴다고 보고 센 값이라 발주 기준으로 쓰는 값입니다. 면적 기준과의 차이는 자투리입니다.</p>`;
+    $('bar-v1').textContent = res.total + '롤';
+  } else {
+    html += `<div class="notice">장 길이가 롤 길이보다 길어서 계산할 수 없는 면이 있습니다. 면별 결과를 확인해 주세요.</div>
+      <div class="sum" style="margin-top:10px"><div><div class="k">면적 기준 · 이론 최소</div>
+        <div class="v">${res.areaRolls}<small>롤</small></div><div class="s">${m2(res.areaMm2)}㎡${marginTxt}</div></div></div>`;
+    $('bar-v1').textContent = '계산 불가';
+  }
+  html += glueHtml(res);
+  $('summary').innerHTML = html;
+  $('bar-v2').textContent = res.areaRolls + '롤';
+}
+
+// ---------- events ----------
+document.addEventListener('input', e => {
+  const t = e.target;
+  if(t.dataset && t.dataset.key){
+    state.doors[t.dataset.face][+t.dataset.idx][t.dataset.key] = +t.value || 0;
+  } else if(t.type === 'checkbox' && t.dataset.face){
+    state.enabled[t.dataset.face] = t.checked;
+  } else if(!t.id || !t.id.startsWith('in-')){
+    return;
+  }
+  render();
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]');
+  if(!b) return;
+  const id = b.dataset.face;
+  if(b.dataset.act === 'add'){
+    state.doors[id].push({w: 900, h: Math.min(2100, state.H || 2100)});
+  } else {
+    state.doors[id].splice(+b.dataset.idx, 1);
+  }
+  renderDoors(id);
+  render();
+});
+
+buildFaces();
+render();
+</script>
+</body>
+</html>
